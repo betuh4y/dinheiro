@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Controle de PIX</title>
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        --bg-color: #f0f4f8;
+        --card-bg: #ffffff;
+        --text-color: #2c3e50;
+        --button-bg: #3498db;
+        --button-hover: #2980b9;
+        --export-button-bg: #27ae60;
+        --export-button-hover: #219653;
+        --border-color: #bdc3c7;
+        --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        --accent-color: #e74c3c;
+      }
+
+      [data-theme="dark"] {
+        --bg-color: #2c3e50;
+        --card-bg: #34495e;
+        --text-color: #ecf0f1;
+        --border-color: #7f8c8d;
+        --shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        --button-bg: #2980b9;
+        --button-hover: #3498db;
+        --export-button-bg: #219653;
+        --export-button-hover: #27ae60;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 10px;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition: background-color 0.3s, color 0.3s;
+        line-height: 1.6;
+      }
+
+      h2,
+      h3,
+      h4 {
+        color: var(--text-color);
+        margin-bottom: 10px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .card {
+        background-color: var(--card-bg);
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+      }
+
+      input[type="email"],
+      input[type="password"],
+      input[type="date"],
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 16px;
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--button-bg);
+        outline: none;
+      }
+
+      button {
+        background-color: var(--button-bg);
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: background-color 0.3s, transform 0.2s;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      button:hover {
+        background-color: var(--button-hover);
+        transform: translateY(-2px);
+      }
+
+      .download-buttons button,
+      .report-section button {
+        background-color: var(--export-button-bg);
+      }
+
+      .download-buttons button:hover,
+      .report-section button:hover {
+        background-color: var(--export-button-hover);
+      }
+
+      #pixList .card {
+        margin-top: 15px;
+        padding: 15px;
+        border-left: 4px solid var(--accent-color);
+      }
+
+      .report-section input[type="text"] {
+        max-width: 100%;
+      }
+
+      .theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background-color: transparent;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--text-color);
+        z-index: 10;
+      }
+
+      /* Estilos para accordion em mobile */
+      .accordion-header {
+        cursor: pointer;
+        padding: 12px;
+        background-color: var(--button-bg);
+        color: white;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .accordion-header::after {
+        content: '\f078';
+        /* Font Awesome chevron-down */
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+      }
+
+      .accordion-header.active::after {
+        content: '\f077';
+        /* chevron-up */
+      }
+
+      .accordion-content {
+        display: none;
+      }
+
+      .accordion-content.active {
+        display: block;
+      }
+
+      /* Responsividade */
+      @media (max-width: 768px) {
+        .accordion-header {
+          display: flex;
+        }
+
+        button {
+          font-size: 14px;
+        }
+
+        .card {
+          padding: 12px;
+        }
+      }
+
+      /* Estilos para resumos */
+      .summary {
+        font-weight: bold;
+        margin: 5px 0;
+        padding: 8px;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 6px;
+      }
+
+      .summary span {
+        color: var(--accent-color);
+      }
+    </style>
+    <script type="text/javascript" src="./index.js" defer=""></script>
+    <link rel="stylesheet" href="./index.css">
+  </head>
+
+  <body>
+    <button class="theme-toggle" id="themeToggle" title="Alternar Modo Claro/Escuro">
+      <i class="fas fa-moon"></i>
+    </button>
+    <div class="container">
+      <h2>Sistema de Controle de PIX</h2>
+      <div id="authSection" class="card">
+        <h3>Login / Cadastro</h3>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Senha">
+        <button id="registerBtn"><i class="fas fa-user-plus"></i> Cadastrar</button>
+        <button id="loginBtn"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+      </div>
+      <div id="pixSection" style="display: none;">
+        <div class="card">
+          <h3 class="accordion-header">Registrar Transação PIX</h3>
+          <div class="accordion-content">
+            <input type="date" id="dataTransacao" placeholder="Data da Transação">
+            <select id="tipoTransacao">
+              <option value="entrada">Entrada (Recebimento)</option>
+              <option value="saida">Saída (Retirada/Saque)</option>
+            </select>
+            <input type="number" id="valorTransacao" placeholder="Valor (R$)" step="0.01">
+            <textarea id="descricaoTransacao" placeholder="Descrição (ex: Saque solicitado pela mãe)"></textarea>
+            <button id="submitTransacao"><i class="fas fa-money-bill-wave"></i> Registrar</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="accordion-header">Definir Saldo Inicial</h3>
+          <div class="accordion-content">
+            <input type="number" id="saldoInicial" placeholder="Saldo Inicial Total (R$)" step="0.01">
+            <button id="setSaldoInicial"><i class="fas fa-bank"></i> Definir Saldo</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="accordion-header">Exportar Relatórios</h3>
+          <div class="accordion-content download-buttons">
+            <button id="exportPdfPixBtn"><i class="fas fa-file-pdf"></i> Baixar PDF</button>
+            <button id="exportExcelPixBtn"><i class="fas fa-file-excel"></i> Baixar Excel</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="accordion-header">Enviar Relatório</h3>
+          <div class="accordion-content report-section">
+            <input type="text" id="phoneNumber" placeholder="Número de Telefone (ex: 5511987654321)">
+            <button id="sendPixReportBtn"><i class="fas fa-paper-plane"></i> Enviar via WhatsApp</button>
+            <small>Formato: Código do país + DDD + Número.</small>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="accordion-header">Resumo Financeiro</h3>
+          <div class="accordion-content active">
+            <div id="pixSummary">
+              <p class="summary">Saldo Total Atual: R$ <span id="saldoTotal">0.00</span></p>
+              <p class="summary">Entradas no Mês: R$ <span id="entradasMes">0.00</span></p>
+              <p class="summary">Saídas no Mês: R$ <span id="saidasMes">0.00</span></p>
+              <p class="summary">Entradas na Semana: R$ <span id="entradasSemana">0.00</span></p>
+              <p class="summary">Saídas na Semana: R$ <span id="saidasSemana">0.00</span></p>
+              <p class="summary">Entradas no Dia: R$ <span id="entradasDia">0.00</span></p>
+              <p class="summary">Saídas no Dia: R$ <span id="saidasDia">0.00</span></p>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="accordion-header">Transações PIX</h3>
+          <div class="accordion-content active">
+            <div id="pixList"></div>
+          </div>
+        </div>
+        <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Sair</button>
+      </div>
+    </div>
+    <script type="module">
+      import {
+        initializeApp
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import {
+        getAuth,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+      import {
+        getDatabase,
+        ref,
+        push,
+        set,
+        update,
+        onValue,
+        remove
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+      const firebaseConfig = {
+        apiKey: "AIzaSyDJBdK9I-jtg9ujTc9Xsxr-hnPfkId4wIU",
+        authDomain: "pdv1-77632.firebaseapp.com",
+        databaseURL: "https://pdv1-77632-default-rtdb.firebaseio.com",
+        projectId: "pdv1-77632",
+        storageBucket: "pdv1-77632.firebasestorage.app",
+        messagingSenderId: "246033791117",
+        appId: "1:246033791117:web:7b70b511ea8d8c5ba1cac4",
+        measurementId: "G-NTG13SG6VM"
+      };
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth();
+      const db = getDatabase();
+      let currentPixData = [];
+      let saldoInicial = 0.00;
+
+      // Função para formatar data no formato brasileiro (DD/MM/YYYY)
+      function formatDateToBR(dateStr) {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      }
+
+      // Função para calcular número da semana no ano
+      function getWeekNumber(date) {
+        const startDate = new Date(date.getFullYear(), 0, 1);
+        const days = Math.floor((date - startDate) / (24 * 60 * 60 * 1000));
+        return Math.ceil((date.getDay() + 1 + days) / 7);
+      }
+
+      // Funções de autenticação
+      document.getElementById("registerBtn").onclick = () => {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        createUserWithEmailAndPassword(auth, email, password)
+          .then(() => alert("Usuário registrado!"))
+          .catch(err => alert(err.message));
+      };
+      document.getElementById("loginBtn").onclick = () => {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        signInWithEmailAndPassword(auth, email, password)
+          .then(() => alert("Login realizado!"))
+          .catch(err => alert(err.message));
+      };
+      document.getElementById("logoutBtn").onclick = () => {
+        signOut(auth);
+      };
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          document.getElementById("authSection").style.display = "none";
+          document.getElementById("pixSection").style.display = "block";
+          carregarTransacoesPix(user.uid);
+          carregarSaldoInicial(user.uid);
+          // Definir data atual para transação
+          document.getElementById("dataTransacao").value = new Date().toISOString().split('T')[0];
+        } else {
+          document.getElementById("authSection").style.display = "block";
+          document.getElementById("pixSection").style.display = "none";
+        }
+      });
+
+      // Função para definir saldo inicial
+      document.getElementById("setSaldoInicial").onclick = () => {
+        const saldo = parseFloat(document.getElementById("saldoInicial").value) || 0.00;
+        const user = auth.currentUser;
+        if (user) {
+          const saldoRef = ref(db, `saldoInicial/${user.uid}`);
+          set(saldoRef, {
+            valor: saldo
+          }).then(() => {
+            alert("Saldo inicial definido!");
+            carregarSaldoInicial(user.uid);
+            carregarTransacoesPix(user.uid); // Atualiza saldo total
+          });
+        } else {
+          alert("Você precisa estar logado.");
+        }
+      };
+
+      // Função para registrar transação PIX
+      document.getElementById("submitTransacao").onclick = () => {
+        const valor = parseFloat(document.getElementById("valorTransacao").value) || 0.00;
+        if (valor <= 0) {
+          alert("Valor deve ser maior que zero.");
+          return;
+        }
+        const data = {
+          dataTransacao: document.getElementById("dataTransacao").value,
+          tipo: document.getElementById("tipoTransacao").value,
+          valor: valor,
+          descricao: document.getElementById("descricaoTransacao").value
+        };
+        const user = auth.currentUser;
+        if (user) {
+          const baseRef = ref(db, `transacoesPix/${user.uid}`);
+          const newTransacaoRef = push(baseRef);
+          set(newTransacaoRef, data).then(() => {
+            alert("Transação registrada!");
+            limparFormularioTransacao();
+            carregarTransacoesPix(user.uid);
+          });
+        } else {
+          alert("Você precisa estar logado.");
+        }
+      };
+
+      // Função para carregar saldo inicial
+      function carregarSaldoInicial(uid) {
+        const saldoRef = ref(db, `saldoInicial/${uid}/valor`);
+        onValue(saldoRef, snapshot => {
+          saldoInicial = snapshot.val() || 0.00;
+          document.getElementById("saldoInicial").value = saldoInicial.toFixed(2);
+        });
+      }
+
+      // Função para carregar transações PIX, agrupadas e com resumos
+      function carregarTransacoesPix(uid) {
+        const transacoesRef = ref(db, `transacoesPix/${uid}`);
+        onValue(transacoesRef, snapshot => {
+          const container = document.getElementById("pixList");
+          container.innerHTML = "";
+          currentPixData = [];
+          let saldoTotal = saldoInicial;
+          let entradasMes = 0,
+            saidasMes = 0;
+          let entradasSemana = 0,
+            saidasSemana = 0;
+          let entradasDia = 0,
+            saidasDia = 0;
+
+          const hoje = new Date();
+          const mesAtual = hoje.getMonth() + 1;
+          const anoAtual = hoje.getFullYear();
+          const semanaAtual = getWeekNumber(hoje);
+          const dataHoje = hoje.toISOString().split('T')[0];
+
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            Object.entries(data).forEach(([key, item]) => {
+              currentPixData.push({
+                id: key,
+                ...item
+              });
+              const valor = item.valor;
+              const transDate = new Date(item.dataTransacao);
+              const transMes = transDate.getMonth() + 1;
+              const transAno = transDate.getFullYear();
+              const transSemana = getWeekNumber(transDate);
+              const transDataStr = item.dataTransacao;
+
+              if (item.tipo === "entrada") {
+                saldoTotal += valor;
+                if (transMes === mesAtual && transAno === anoAtual) entradasMes += valor;
+                if (transSemana === semanaAtual && transAno === anoAtual) entradasSemana += valor;
+                if (transDataStr === dataHoje) entradasDia += valor;
+              } else {
+                saldoTotal -= valor;
+                if (transMes === mesAtual && transAno === anoAtual) saidasMes += valor;
+                if (transSemana === semanaAtual && transAno === anoAtual) saidasSemana += valor;
+                if (transDataStr === dataHoje) saidasDia += valor;
+              }
+            });
+            // Ordenar por data descendente
+            currentPixData.sort((a, b) => new Date(b.dataTransacao) - new Date(a.dataTransacao));
+            // Agrupar por data
+            const groupedByDate = currentPixData.reduce((acc, item) => {
+              const dateKey = formatDateToBR(item.dataTransacao);
+              if (!acc[dateKey]) acc[dateKey] = [];
+              acc[dateKey].push(item);
+              return acc;
+            }, {});
+            // Renderizar grupos
+            Object.entries(groupedByDate).forEach(([date, items]) => {
+              const groupDiv = document.createElement("div");
+              groupDiv.className = "card";
+              groupDiv.innerHTML = `<h4>Transações em ${date}</h4>`;
+              items.forEach(item => {
+                const itemDiv = document.createElement("div");
+                itemDiv.style.marginBottom = "10px";
+                const cor = item.tipo === "entrada" ? "green" : "red";
+                itemDiv.innerHTML = `
+                  <strong>Tipo:</strong> <span style="color: ${cor};">${item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1)}</span><br>
+                  <strong>Valor:</strong> R$ ${item.valor.toFixed(2)}<br>
+                  <strong>Descrição:</strong> ${item.descricao}<br>
+                  <button onclick="excluirTransacaoPix('${item.id}')"><i class="fas fa-trash"></i> Excluir</button>
+                `;
+                groupDiv.appendChild(itemDiv);
+              });
+              container.appendChild(groupDiv);
+            });
+          } else {
+            container.innerHTML = "<p style='text-align: center; color: gray;'>Nenhuma transação registrada ainda.</p>";
+          }
+
+          // Atualizar resumos
+          document.getElementById("saldoTotal").textContent = saldoTotal.toFixed(2);
+          document.getElementById("entradasMes").textContent = entradasMes.toFixed(2);
+          document.getElementById("saidasMes").textContent = saidasMes.toFixed(2);
+          document.getElementById("entradasSemana").textContent = entradasSemana.toFixed(2);
+          document.getElementById("saidasSemana").textContent = saidasSemana.toFixed(2);
+          document.getElementById("entradasDia").textContent = entradasDia.toFixed(2);
+          document.getElementById("saidasDia").textContent = saidasDia.toFixed(2);
+        });
+      }
+
+      // Função para excluir transação PIX
+      window.excluirTransacaoPix = (id) => {
+        const user = auth.currentUser;
+        if (!user) return;
+        const confirmacao = confirm("Tem certeza que deseja excluir esta transação?");
+        if (!confirmacao) return;
+        const itemRef = ref(db, `transacoesPix/${user.uid}/${id}`);
+        remove(itemRef)
+          .then(() => {
+            alert("Transação excluída com sucesso!");
+            carregarTransacoesPix(user.uid);
+          })
+          .catch(err => alert("Erro ao excluir: " + err.message));
+      };
+
+      // Função para limpar formulário de transação
+      function limparFormularioTransacao() {
+        document.getElementById("dataTransacao").value = new Date().toISOString().split('T')[0];
+        document.getElementById("tipoTransacao").value = "entrada";
+        document.getElementById("valorTransacao").value = "";
+        document.getElementById("descricaoTransacao").value = "";
+      }
+
+      // Função auxiliar para carregar imagem como base64
+      function getBase64Image(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.src = url;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+          img.onerror = (err) => reject(err);
+        });
+      }
+
+      // Exportação para PDF de transações PIX
+      document.getElementById("exportPdfPixBtn").onclick = async () => {
+        if (currentPixData.length === 0) {
+          alert("Não há transações PIX para exportar.");
+          return;
+        }
+        const {
+          jsPDF
+        } = window.jspdf;
+        const doc = new jsPDF();
+        let startY = 20;
+        try {
+          const imageUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQah2QIOfwC0zx1PXhE11jprq5zvwglscFUFA&s';
+          const imageData = await getBase64Image(imageUrl);
+          doc.addImage(imageData, 'PNG', 10, 10, 40, 40);
+          doc.setFontSize(16);
+          doc.text("Relatório De Transações PIX Casa Pedro Ferreira", 55, 30);
+          startY = 50;
+        } catch (e) {
+          console.error("Erro ao carregar imagem:", e);
+          doc.setFontSize(16);
+          doc.text("Relatório de Transações PIX", 10, 10);
+          startY = 20;
+        }
+        const tableColumn = ["Data", "Tipo", "Valor (R$)", "Descrição"];
+        const tableRows = [];
+        currentPixData.forEach(trans => {
+          const transData = [
+            formatDateToBR(trans.dataTransacao),
+            trans.tipo.charAt(0).toUpperCase() + trans.tipo.slice(1),
+            trans.valor.toFixed(2),
+            trans.descricao
+          ];
+          tableRows.push(transData);
+        });
+        doc.autoTable({
+          head: [tableColumn],
+          body: tableRows,
+          startY: startY,
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+            overflow: 'linebreak'
+          },
+          headStyles: {
+            fillColor: [40, 167, 69],
+            textColor: [255, 255, 255]
+          },
+          alternateRowStyles: {
+            fillColor: [240, 240, 240]
+          }
+        });
+        doc.save("relatorio_transacoes_pix.pdf");
+      };
+
+      // Exportação para Excel de transações PIX
+      document.getElementById("exportExcelPixBtn").onclick = () => {
+        if (currentPixData.length === 0) {
+          alert("Não há transações PIX para exportar.");
+          return;
+        }
+        const worksheet = XLSX.utils.json_to_sheet(currentPixData.map(trans => ({
+          "Data Transação": formatDateToBR(trans.dataTransacao),
+          "Tipo": trans.tipo.charAt(0).toUpperCase() + trans.tipo.slice(1),
+          "Valor (R$)": trans.valor.toFixed(2),
+          "Descrição": trans.descricao
+        })));
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Transações PIX");
+        XLSX.writeFile(workbook, "relatorio_transacoes_pix.xlsx");
+      };
+
+      // Função para enviar relatório de PIX por número
+      document.getElementById("sendPixReportBtn").onclick = () => {
+        const phoneNumber = document.getElementById("phoneNumber").value.trim();
+        if (!phoneNumber) {
+          alert("Por favor, insira um número de telefone.");
+          return;
+        }
+        if (currentPixData.length === 0) {
+          alert("Não há transações PIX para enviar no relatório.");
+          return;
+        }
+        let reportMessage = "Relatório de Transações PIX:\n\n";
+        reportMessage += `Saldo Inicial: R$ ${saldoInicial.toFixed(2)}\n`;
+        reportMessage += `Saldo Total Atual: R$ ${document.getElementById("saldoTotal").textContent}\n\n`;
+        currentPixData.forEach(trans => {
+          reportMessage += `Data: ${formatDateToBR(trans.dataTransacao)}\n`;
+          reportMessage += `Tipo: ${trans.tipo.charAt(0).toUpperCase() + trans.tipo.slice(1)}\n`;
+          reportMessage += `Valor: R$ ${trans.valor.toFixed(2)}\n`;
+          reportMessage += `Descrição: ${trans.descricao}\n`;
+          reportMessage += `--------------------------------------\n`;
+        });
+        reportMessage += `\nResumo:\n`;
+        reportMessage += `Entradas no Mês: R$ ${document.getElementById("entradasMes").textContent}\n`;
+        reportMessage += `Saídas no Mês: R$ ${document.getElementById("saidasMes").textContent}\n`;
+        reportMessage += `Entradas na Semana: R$ ${document.getElementById("entradasSemana").textContent}\n`;
+        reportMessage += `Saídas na Semana: R$ ${document.getElementById("saidasSemana").textContent}\n`;
+        reportMessage += `Entradas no Dia: R$ ${document.getElementById("entradasDia").textContent}\n`;
+        reportMessage += `Saídas no Dia: R$ ${document.getElementById("saidasDia").textContent}\n`;
+        const confirmSend = confirm("Isso abrirá o WhatsApp com a mensagem preenchida. Deseja continuar?");
+        if (confirmSend) {
+          const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(reportMessage)}`;
+          window.open(whatsappUrl, '_blank');
+          alert("Tentando abrir o WhatsApp. Verifique o número se não funcionar.");
+        }
+      };
+
+      // Modo escuro
+      const themeToggle = document.getElementById("themeToggle");
+      themeToggle.addEventListener("click", () => {
+        const currentTheme = document.body.getAttribute("data-theme") || "light";
+        const newTheme = currentTheme === "light" ? "dark" : "light";
+        document.body.setAttribute("data-theme", newTheme);
+        themeToggle.innerHTML = newTheme === "light" ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        localStorage.setItem("theme", newTheme);
+      });
+      // Carregar tema salvo
+      const savedTheme = localStorage.getItem("theme") || "light";
+      document.body.setAttribute("data-theme", savedTheme);
+      themeToggle.innerHTML = savedTheme === "light" ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+
+      // Funcionalidade de accordion
+      document.querySelectorAll(".accordion-header").forEach(header => {
+        header.addEventListener("click", () => {
+          header.classList.toggle("active");
+          const content = header.nextElementSibling;
+          content.classList.toggle("active");
+        });
+      });
+    </script>
+
+  </body>
+
+</html>
